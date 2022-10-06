@@ -7,6 +7,8 @@ import enum
 from gi.repository import GLib
 import dbus
 import dbus.mainloop.glib
+from velib_python.vedbus import VeDbusService
+from velib_python.settingsdevice import SettingsDevice
 logger = logging.getLogger(__name__)
 
 
@@ -52,26 +54,67 @@ class Sensor(ABC):
         """Update the sensor."""
         pass
 
-
+TEMPERATURE_SENSOR_SETTINGS = 
 class TemperatureSensor(Sensor):
     """A temperature Sensor."""
 
-    dbusBasepath = "com.victronenergy.temperature"
+    dbusBasepath = "com.victronenergy.temperature."
     _ids = count(0)
 
-    def __init__(self, dbus, dev):
+    def __init__(self, dev):
         """Initialise the class."""
-        self._dbus = dbus
         self._dev = dev
         self._id = next(self._ids)
         self._temperature = 24.0
-        self.scale = 1
-        self.offset = 0
+        self._status = Status.DISCONNECTED
+        self._scale = 1
+        self._offset = 0
+        self._attach_to_dbus()
+
+    def _attach_to_dbus(self):
+        """Attach to dbus and create paths and callbacks.
+
+        The dbus object will be com.victronenergy.temperature.<n>
+        Paths
+        /analogpinFunc
+        /Temperature        degrees Celcius
+        /Status             0=Ok; 1=Disconnected; 2=Short circuited; 3=Reverse polarity; 4=Unknown
+        /Scale
+        /Offset
+        /TemperatureType    0=battery; 1=fridge; 2=generic
+        """
+        self._dbus = VeDbusService(f"{TemperatureSensor.dbusBasepath}{self.id}")
+        # self._dbus.add_path("/analogpinFunc", 0)
+
+        self._dbus.add_path("/Temperature", self._temperature)
+        self._dbus.add_path("/Status", self._status)
+
+        self._settings_base ={ 'scale': [f'/Settings/Devices/{self.id}/Scale', 1.0, 0.0, 1.0],
+                               'offset': [f'/Settings/Devices/{self._id}/Offset', 0,0, ADS1115_RANGE]}
+        self._settings = SettingsDevice(self._dbus.dbusconn, self._settings_base, eventCallback)
+
+    def _setting_changed(self, setting, old, new):
+        if setting == 'scale':
+            logger.info(f"Scale setting Changed from {old} to {new}")
+            self._scale = new
+        elif setting == "offset":
+            logger.info(f"Offset setting Changed from {old} to {new}")
+            self._offset = new
+    def _set_status(self, status):
+            self._status = status
+            self._dbus["/Status"] = self._status
+
 
     def update(self):
         """Update the temperature reading of the sensor."""
-        with open(self._dev, "r") as dev:
-            self._temperature = dev.read() * self.scale + self.offset
+        try:
+            with open(self._dev, "r") as dev:
+                self._temperature = dev.read() * self._scale + self._offset
+            self._dbus["/Temperature"] = self._temperature
+            if self._status != Status.OK:
+                self._set_status(Status.OK)
+        except FileNotFoundError as err:
+                self._set_status(Status.DISCONNECTED)
 
 
 class SensorManager(Object):
@@ -122,20 +165,7 @@ def main():
 
     mainloop = GLib.MainLoop()
 
-    svc = VeDbusService('com.victronenergy.modem')
-
-    svc.add_path('/Model', None)
-    svc.add_path('/IMEI', None)
-    svc.add_path('/NetworkName', None)
-    svc.add_path('/NetworkType', None)
-    svc.add_path('/SignalStrength', None)
-    svc.add_path('/Roaming', None)
-    svc.add_path('/Connected', None)
-    svc.add_path('/IP', None)
-    svc.add_path('/SimStatus', None)
-    svc.add_path('/RegStatus', None)
-
-    modem = Ads1115(svc, args.serial, rate)
+    # TODO do stff
     if not modem.start():
         return
 
