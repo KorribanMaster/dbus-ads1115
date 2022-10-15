@@ -7,15 +7,12 @@ from enum import Enum
 from gi.repository import GLib
 import dbus
 import dbus.mainloop.glib
-import sys
 import os
 from datetime import datetime
 from argparse import ArgumentParser
 
-sys.path.append(
-    os.path.join(os.path.dirname(__file__), '../../ext/velib_python'))
-from vedbus import VeDbusService
-from settingsdevice import SettingsDevice
+from dbus_ads1115.ext.velib_python.vedbus import VeDbusService
+from dbus_ads1115.ext.velib_python.settingsdevice import SettingsDevice
 
 logger = logging.getLogger(__name__)
 
