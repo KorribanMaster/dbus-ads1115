@@ -2,12 +2,10 @@ import pytest
 import dbus
 from unittest.mock import patch, mock_open
 from dbus_ads1115.dbus_ads1115 import TemperatureSensor
-from dbus_ads1115.ext.velib_python.test.mock_settings_device import MockSettingsDevice
-from dbus_ads1115.ext.velib_python.test.mock_dbus_service import MockDbusService
-import subprocess as sp
+from dbus_ads1115.mock.mock_settings_device import MockSettingsDevice
+from dbus_ads1115.mock.mock_dbus_service import MockDbusService
 from gi.repository import GLib
 from time import sleep
-import os
 
 MOCK_DEV_FILENAME = "inX_input"
 
@@ -23,8 +21,8 @@ def dbus_session(tmp_path_factory):
     yield
 
 
-@patch("dbus_ads1115.ext.velib_python.settingsdevice.SettingsDevice", MockSettingsDevice)
-@patch("dbus_ads1115.ext.velib_python.vedbus.VeDbusService", MockDbusService)
+@patch("dbus_ads1115.settingsdevice.SettingsDevice", MockSettingsDevice)
+@patch("dbus_ads1115.vedbus.VeDbusService", MockDbusService)
 @pytest.fixture(scope="module")
 def temperature_sensor(dbus_session):
     temp_sensor = TemperatureSensor(MOCK_DEV_FILENAME)
@@ -32,7 +30,7 @@ def temperature_sensor(dbus_session):
     del temp_sensor
 
 
-@patch("dbus_ads1115.ext.velib_python.vedbus.VeDbusService", MockDbusService)
+@patch("dbus_ads1115.vedbus.VeDbusService", MockDbusService)
 @patch.object(TemperatureSensor, "_attach_to_dbus")
 def test_temperature_sensor_counting(dbus_session):
     sensor0 = TemperatureSensor(MOCK_DEV_FILENAME)

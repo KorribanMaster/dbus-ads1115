@@ -1,9 +1,0 @@
-[submodule "src/ext/velib_python"]
-	path = src/ext/velib_python
-	url = https://github.com/victronenergy/velib_python
-[submodule "src/ext/localsettings"]
-	path = src/ext/localsettings
-	url = git@github.com:victronenergy/localsettings.git
-[submodule "src/dbus_ads1115/ext/velib_python"]
-	path = src/dbus_ads1115/ext/velib_python
-	url = https://github.com/victronenergy/velib_python

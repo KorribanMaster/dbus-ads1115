@@ -11,8 +11,8 @@ import os
 from datetime import datetime
 from argparse import ArgumentParser
 
-from dbus_ads1115.ext.velib_python.vedbus import VeDbusService
-from dbus_ads1115.ext.velib_python.settingsdevice import SettingsDevice
+from .vedbus import VeDbusService
+from .settingsdevice import SettingsDevice
 
 logger = logging.getLogger(__name__)
 
