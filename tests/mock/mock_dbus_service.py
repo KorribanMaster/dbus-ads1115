@@ -1,12 +1,26 @@
-# Simulates the busService object without using the D-Bus (intended for unit tests). Data usually stored in
-# D-Bus items is now stored in memory.
+"""Simulates the VeDbusService object without using the D-Bus (intended for unit tests).
+
+Data usually stored in D-Bus items is now stored in memory.
+"""
+
+
 class MockDbusService(object):
+    """Simulates the VeDbusService object without using the D-Bus (intended for unit tests).
+
+    Data usually stored in D-Bus items is now stored in memory.
+    """
+
     def __init__(self, servicename):
         self._dbusobjects = {}
         self._callbacks = {}
         self._service_name = servicename
 
-    def add_path(self, path, value, description="", writeable=False, onchangecallback=None,
+    def add_path(self,
+                 path,
+                 value,
+                 description="",
+                 writeable=False,
+                 onchangecallback=None,
                  gettextcallback=None):
         self._dbusobjects[path] = value
         if onchangecallback is not None:
@@ -14,7 +28,8 @@ class MockDbusService(object):
 
     # Add the mandatory paths, as per victron dbus api doc
     def add_mandatory_paths(self, processname, processversion, connection,
-            deviceinstance, productid, productname, firmwareversion, hardwareversion, connected):
+                            deviceinstance, productid, productname,
+                            firmwareversion, hardwareversion, connected):
         self.add_path('/Management/ProcessName', processname)
         self.add_path('/Management/ProcessVersion', processversion)
         self.add_path('/Management/Connection', connection)
@@ -39,8 +54,9 @@ class MockDbusService(object):
 
     def __setitem__(self, path, newvalue):
         if path not in self._dbusobjects:
-            raise Exception('Path not registered in service: {}{} (use add_path to register)'.\
-                format(self._service_name, path))
+            raise Exception(
+                'Path not registered in service: {}{} (use add_path to register)'
+                .format(self._service_name, path))
         self._dbusobjects[path] = newvalue
 
     def __delitem__(self, path):

@@ -11,8 +11,9 @@ import os
 from datetime import datetime
 from argparse import ArgumentParser
 
-from .vedbus import VeDbusService
-from .settingsdevice import SettingsDevice
+from dbus_ads1115.vedbus import VeDbusService
+from dbus_ads1115.settingsdevice import SettingsDevice
+
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,7 @@ class TemperatureSensor(Sensor):
 
     def __init__(self, dev, dbus=None):
         """Initialise the class."""
+
         self._dev = dev
         self._id = next(self._ids)
         logger.info(f"Temperature Sensor count={self._id}")
@@ -75,7 +77,16 @@ class TemperatureSensor(Sensor):
         self._status = Status.DISCONNECTED
         self._scale = 1
         self._offset = 0
-        self._attach_to_dbus(dbus)
+        self._dbus = self._attach_to_dbus(dbus)
+        self._settings_base = {
+            'scale':
+            [f'/Settings/Devices/device0_{self._id}/Scale', 1.0, 0.0, 1.0],
+            'offset': [
+                f'/Settings/Devices/device0_{self._id}/Offset', 0, 0,
+                ADS1115_RANGE
+            ]
+        }
+        self._settings = self._attach_to_settings(self._settings_base, self._setting_changed)
 
     def _attach_to_dbus(self, dbus):
         """Attach to dbus and create paths and callbacks.
@@ -89,24 +100,17 @@ class TemperatureSensor(Sensor):
         /Offset
         /TemperatureType    0=battery; 1=fridge; 2=generic
         """
-        self._dbus = VeDbusService(
+        _dbus = VeDbusService(
             f"{TemperatureSensor.dbusBasepath}device0_{self._id}", bus=dbus)
         # self._dbus.add_path("/analogpinFunc", 0)
 
-        self._dbus.add_path("/Temperature", self._temperature)
-        self._dbus.add_path("/Status", self._status)
+        _dbus.add_path("/Temperature", self._temperature)
+        _dbus.add_path("/Status", self._status)
+        return _dbus
 
-        self._settings_base = {
-            'scale':
-            [f'/Settings/Devices/device0_{self._id}/Scale', 1.0, 0.0, 1.0],
-            'offset': [
-                f'/Settings/Devices/device0_{self._id}/Offset', 0, 0,
-                ADS1115_RANGE
-            ]
-        }
-        self._settings = SettingsDevice(self._dbus.dbusconn,
-                                        self._settings_base,
-                                        self._setting_changed)
+    def _attach_to_settings(self, settings_base, event_callback):
+        return SettingsDevice(self._dbus.dbusconn, settings_base,
+                              event_callback)
 
     def _setting_changed(self, setting, old, new):
         if setting == 'scale':
@@ -124,7 +128,8 @@ class TemperatureSensor(Sensor):
         """Update the temperature reading of the sensor."""
         try:
             with open(self._dev, "r") as dev:
-                self._temperature = int(dev.read()) * self._scale + self._offset
+                self._temperature = int(
+                    dev.read()) * self._scale + self._offset
             self._dbus["/Temperature"] = self._temperature
             if self._status != Status.OK:
                 self._set_status(Status.OK)

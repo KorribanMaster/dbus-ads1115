@@ -1,46 +1,54 @@
 import pytest
-import dbus
-from unittest.mock import patch, mock_open
+from pytest import MonkeyPatch
 from dbus_ads1115.dbus_ads1115 import TemperatureSensor
-from dbus_ads1115.mock.mock_settings_device import MockSettingsDevice
-from dbus_ads1115.mock.mock_dbus_service import MockDbusService
-from gi.repository import GLib
-from time import sleep
+# import dbus_ads1115.mock.mock_settings_device
+# import dbus_ads1115.mock.mock_dbus_service
+from .mock.mock_settings_device import MockSettingsDevice
+from .mock.mock_dbus_service import MockDbusService
+from unittest.mock import patch, mock_open
 
 MOCK_DEV_FILENAME = "inX_input"
 
 
-@pytest.fixture(scope="session")
-def dbus_session(tmp_path_factory):
-    global mainloop
-    sleep(5)
-    dbus.mainloop.glib.threads_init()
-    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+def mock_attach_to_dbus(cls, *args, **kwargs):
+    _dbus = MockDbusService(
+        f"{TemperatureSensor.dbusBasepath}device0_{cls._id}")
 
-    mainloop = GLib.MainLoop()
-    yield
+    _dbus.add_path("/Temperature", cls._temperature)
+    _dbus.add_path("/Status", cls._status)
+    return _dbus
 
 
-@patch("dbus_ads1115.settingsdevice.SettingsDevice", MockSettingsDevice)
-@patch("dbus_ads1115.vedbus.VeDbusService", MockDbusService)
-@pytest.fixture(scope="module")
-def temperature_sensor(dbus_session):
+def mock_attach_to_settings(cls, *args, **kwargs):
+    return MockSettingsDevice(*args)
+
+
+@pytest.fixture(scope="function")
+def temperature_sensor(monkeypatch: MonkeyPatch) -> TemperatureSensor:
+    monkeypatch.setattr(TemperatureSensor, "_attach_to_dbus",
+                        mock_attach_to_dbus)
+    monkeypatch.setattr(TemperatureSensor, "_attach_to_settings",
+                        mock_attach_to_settings)
     temp_sensor = TemperatureSensor(MOCK_DEV_FILENAME)
     yield temp_sensor
     del temp_sensor
 
 
-@patch("dbus_ads1115.vedbus.VeDbusService", MockDbusService)
-@patch.object(TemperatureSensor, "_attach_to_dbus")
-def test_temperature_sensor_counting(dbus_session):
+def test_temperature_sensor_counting(monkeypatch: MonkeyPatch):
+    monkeypatch.setattr(TemperatureSensor, "_attach_to_dbus",
+                        mock_attach_to_dbus)
+    monkeypatch.setattr(TemperatureSensor, "_attach_to_settings",
+                        mock_attach_to_settings)
     sensor0 = TemperatureSensor(MOCK_DEV_FILENAME)
     sensor1 = TemperatureSensor(MOCK_DEV_FILENAME)
     assert sensor0._id == sensor1._id - 1
 
 
-@pytest.mark.parametrize("data, expect", [('0', 0), ('4096', 100)])
-def test_sensor_update(temperature_sensor, dbus_session, data, expect):
+@pytest.mark.parametrize("data, expect", [('0', 0), ('4096', 4096)])
+def test_sensor_update(temperature_sensor, data, expect):
     with patch("builtins.open", mock_open(read_data=data)) as mock_file:
         temperature_sensor.update()
+        assert temperature_sensor._temperature == expect
+        assert temperature_sensor._dbus["/Temperature"] == expect
         mock_file.assert_called_with(MOCK_DEV_FILENAME, "r")
     pass
